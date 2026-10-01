@@ -2,6 +2,10 @@
 // Substitui inteiramente o "db" de Artifact (Firestore-like) do protótipo
 // original por chamadas REST contra o backend AdonisJS já em produção.
 const API_BASE = 'https://api.grupoamsfacilita.com.br';
+// Esse app é dedicado a um único nicho - só deixa entrar se alguma das
+// empresas do usuário estiver marcada com esse system_type (19 = "Garagem
+// do Investidor", ver app/Constants/systemTypes.ts no backend).
+const GARAGEM_SYSTEM_TYPE = 19;
 
 const Auth = {
   token: null,
@@ -46,9 +50,25 @@ const Auth = {
     if (!res.ok) {
       throw new ApiError(data.message || data.mensagem || 'Usuário ou senha incorretos.', res.status, data);
     }
+
+    // O login é o mesmo do Controle Dois inteiro (multi-nicho) - aqui
+    // restringimos pra só aceitar se o usuário tiver acesso a alguma
+    // empresa com o nicho certo, usando ESSA empresa como ativa (ignora
+    // "company" da resposta, que é só a primeira da lista do usuário).
+    const empresaGaragem = (data.user?.companies || []).find(
+      (c) => Number(c.system_type) === GARAGEM_SYSTEM_TYPE
+    );
+    if (!empresaGaragem) {
+      throw new ApiError(
+        'Este usuário não tem acesso ao nicho Garagem do Investidor. Fale com o administrador do sistema.',
+        403,
+        data
+      );
+    }
+
     this.token = data.token?.token;
     this.user = data.user;
-    this.company = data.company;
+    this.company = empresaGaragem;
     this.save();
     return data;
   },
