@@ -79,8 +79,13 @@ async function loadAll() {
     S.clientes = clRes.data;
     S.fornecedores = foRes.data;
     const billsBySale = {};
-    (biRes.data || []).forEach(b => { (billsBySale[b.saleId] ||= []).push(b); });
-    S.vendas = (saRes.data || []).filter(s => s.vehicleId).map(s => ({ ...s, _bills: billsBySale[s.id] || [] }));
+    // A API serializa colunas em snake_case (vehicle_id, people_id, sale_id);
+    // o resto do app usa camelCase, então normaliza aqui na entrada.
+    (biRes.data || []).forEach(b => { const sid = b.sale_id ?? b.saleId; if (sid) (billsBySale[sid] ||= []).push(b); });
+    S.vendas = (saRes.data || [])
+      .map(s => ({ ...s, vehicleId: s.vehicleId ?? s.vehicle_id, peopleId: s.peopleId ?? s.people_id }))
+      .filter(s => s.vehicleId)
+      .map(s => ({ ...s, _bills: billsBySale[s.id] || [] }));
 
     // Parcelas de investimentos (empréstimos/vendas a prazo) só vêm no
     // detalhe (GET /investment/:id) - buscamos uma a uma só pros ativos com
@@ -714,7 +719,7 @@ async function excluirVenda(id, veiculoId) {
 }
 async function marcarParcela(billId, pago) {
   const bill = await Bills.get(billId);
-  await w(() => Bills.update(billId, { category_id: bill.categoryId, role: bill.role, name: bill.name, date_competence: bill.date_competence, date_due: bill.date_due, amount: bill.amount, repeat: false, form_payment: bill.form_payment, status: pago ? 1 : 0, date_received: pago ? today() : null }), pago ? 'Parcela marcada como recebida' : 'Recebimento desfeito');
+  await w(() => Bills.update(billId, { category_id: bill.category_id ?? bill.categoryId, role: bill.role, name: bill.name, date_competence: bill.date_competence, date_due: bill.date_due, amount: bill.amount, repeat: false, form_payment: bill.form_payment, status: pago ? 1 : 0, date_received: pago ? today() : null }), pago ? 'Parcela marcada como recebida' : 'Recebimento desfeito');
   await loadAll();
 }
 
