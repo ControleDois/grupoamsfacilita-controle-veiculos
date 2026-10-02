@@ -685,8 +685,14 @@ async function salvarVenda() {
   if (!plots.length) plots.push({ portion: 1, form_payment: 9, date_due: dataVenda, amount: valor, status: 1 });
 
   const config = Auth.company.config || {};
+  // sales.user_id aponta pra tabela de pessoas (não pra users): precisa ser o
+  // cadastro de pessoa do usuário logado nesta empresa.
+  let minhaPessoa;
+  try { minhaPessoa = await People.me(companyId()); }
+  catch (e) { toast('Não foi possível identificar seu cadastro de pessoa nesta empresa.'); return; }
+
   const payload = {
-    companyId: companyId(), peopleId: clienteId, userId: Auth.user.id, role: 1, status: 3,
+    companyId: companyId(), peopleId: clienteId, userId: minhaPessoa.id, role: 1, status: 3,
     vehicleId: veiculoId, categoryId: config.sale_category_default_id, bankAccountId: config.sale_bank_account_default_id,
     date_sale: dataVenda, note: val('fs-obs') || undefined,
     vehicleSaleContract: { vehicleId: veiculoId, buyerPeopleId: clienteId, saleValue: valor, downPayment: entrada, installmentCount: parcelas.length, firstDueDate: parcelas[0]?.venc },

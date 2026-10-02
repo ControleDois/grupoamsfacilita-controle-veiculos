@@ -141,6 +141,7 @@ const VehicleExpenses = {
 const People = {
   list: (companyId, opts = {}) =>
     get('/people', { companyId, role: opts.role, search: opts.search, limit: opts.limit || 200, page: opts.page || 1 }),
+  me: (companyId) => get('/people/me', { companyId }),
   get: (id) => get(`/people/${id}`),
   create: (data) => post('/people', data),
   update: (id, data) => put(`/people/${id}`, data),
