@@ -466,12 +466,12 @@ function vClientes() {
 }
 
 /* ---------- modais ---------- */
-function openModal(title, body, footer, onMount) {
+function openModal(title, body, footer, onMount, opts = {}) {
   modalRoot.innerHTML = `<div class="overlay" data-overlay="1"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
     <div class="modal-h"><h2>${esc(title)}</h2><button class="x" data-act="fechar" aria-label="Fechar">×</button></div>
     <div class="modal-b">${body}</div>${footer ? `<div class="modal-f">${footer}</div>` : ''}</div></div>`;
   document.body.style.overflow = 'hidden';
-  const f = modalRoot.querySelector('input,select,textarea'); if (f) setTimeout(() => f.focus(), 30);
+  const f = opts.autofocus === false ? null : modalRoot.querySelector('input,select,textarea'); if (f) setTimeout(() => f.focus(), 30);
   if (onMount) onMount(modalRoot);
 }
 function closeModal() { modalRoot.innerHTML = ''; document.body.style.overflow = ''; }
@@ -535,7 +535,17 @@ async function salvarVeiculo(id) {
 }
 
 let openVeicId = null;
-function verVeiculo(id) {
+// Guarda o que já foi digitado no formulário de despesa e qual campo estava em foco,
+// pra não perder isso quando o modal é redesenhado com a lista de despesas carregada.
+function snapshotDespesaForm() {
+  const ids = ['fd-data', 'fd-cat', 'fd-desc', 'fd-valor'];
+  const values = {};
+  ids.forEach(i => { const el = document.getElementById(i); if (el) values[i] = el.value; });
+  const a = document.activeElement;
+  return { values, active: a && ids.includes(a.id) ? a.id : null };
+}
+
+function verVeiculo(id, restore) {
   const v = veic(id); if (!v) return closeModal();
   const s = vendaDe(id), c = s && pessoaPorId(s.peopleId), l = s ? num(s.vehicleSaleContract?.saleValue ?? s.amount) - custo(v) : null;
   const desp = (v._expenses || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -574,9 +584,21 @@ function verVeiculo(id) {
       </div>
       <div><button class="btn sm pri" data-act="add-despesa" data-veiculo="${v.id}">Lançar despesa</button></div>
     </fieldset>`,
-    `<button class="btn" data-act="editar-veiculo" data-id="${v.id}">Editar dados</button><button class="btn pri" data-act="fechar">Fechar</button>`);
+    `<button class="btn" data-act="editar-veiculo" data-id="${v.id}">Editar dados</button><button class="btn pri" data-act="fechar">Fechar</button>`, null, { autofocus: false });
   openVeicId = id;
-  VehicleExpenses.list(companyId(), id).then(res => { v._expenses = res.data; if (openVeicId === id) verVeiculo(id); }).catch(() => {});
+  if (restore) {
+    Object.entries(restore.values).forEach(([k, val]) => { const el = document.getElementById(k); if (el) el.value = val; });
+    if (restore.active) document.getElementById(restore.active)?.focus();
+  }
+  // Busca as despesas só na primeira abertura (v._expenses ainda indefinido);
+  // quando chegam, redesenha uma única vez - sem isso o modal se redesenhava
+  // em loop e o foco voltava sempre pro campo de data.
+  if (v._expenses === undefined) {
+    VehicleExpenses.list(companyId(), id).then(res => {
+      v._expenses = res.data || [];
+      if (openVeicId === id) verVeiculo(id, snapshotDespesaForm());
+    }).catch(() => { v._expenses = []; });
+  }
 }
 async function addDespesa(vid) {
   const valor = num(val('fd-valor'));
