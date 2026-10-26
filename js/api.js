@@ -132,15 +132,16 @@ const Vehicles = {
 
 // ---------- Despesas de veículo ----------
 const VehicleExpenses = {
-  list: (companyId, vehicleId) => get('/vehicle-expense', { companyId, vehicleId, limit: 200 }),
+  list: (companyId, vehicleId) => get('/vehicle-expense', { companyId, vehicleId, limit: 2000 }),
   create: (data) => post('/vehicle-expense', data),
   remove: (id) => del(`/vehicle-expense/${id}`),
 };
 
 // ---------- Pessoas (clientes/fornecedores) ----------
+// O filtro da API é `roles` (array do Postgres, ex.: {2}); `address` faz vir o endereço junto.
 const People = {
   list: (companyId, opts = {}) =>
-    get('/people', { companyId, role: opts.role, search: opts.search, limit: opts.limit || 200, page: opts.page || 1 }),
+    get('/people', { companyId, roles: opts.role ? `{${opts.role}}` : undefined, address: 'true', search: opts.search, limit: opts.limit || 500, page: opts.page || 1 }),
   me: (companyId) => get('/people/me', { companyId }),
   get: (id) => get(`/people/${id}`),
   create: (data) => post('/people', data),
@@ -157,11 +158,25 @@ const Sales = {
   remove: (id) => del(`/sale/${id}`),
 };
 
+// role 1 = contas a receber (parcelas das vendas), role 0 = contas a pagar.
 const Bills = {
   listBySale: (companyId, saleId) => get('/bill', { companyId, saleId, statusType: '', limit: 500 }),
   listByCompany: (companyId) => get('/bill', { companyId, role: 1, statusType: '', limit: 1000, orderBy: 'date_due', sortedBy: 'asc' }),
+  listPayables: (companyId) => get('/bill', { companyId, role: 0, statusType: '', limit: 2000, orderBy: 'date_due', sortedBy: 'asc' }),
   get: (id) => get(`/bill/${id}`),
+  create: (data) => post('/bill', data),
   update: (id, data) => put(`/bill/${id}`, data),
+  remove: (id) => del(`/bill/${id}`),
+};
+
+const Categories = {
+  list: (companyId, role) => get('/category', { companyId, role, limit: 500 }),
+  create: (data) => post('/category', data),
+};
+
+const Configs = {
+  get: (companyId) => get('/config', { companyId }),
+  update: (id, data) => put(`/config/${id}`, data),
 };
 
 // ---------- Investimentos ----------
@@ -191,6 +206,8 @@ window.Garagem = {
   People,
   Sales,
   Bills,
+  Categories,
+  Configs,
   Investments,
   InvestmentInstallments,
   InvestmentEntries,
